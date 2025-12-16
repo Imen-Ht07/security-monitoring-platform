@@ -186,7 +186,6 @@ __pycache__/
 .vscode/
 .idea/
 *.log
-uploads/*
 esdata/
 mongodata/
 redisdata/

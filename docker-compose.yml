@@ -1,14 +1,15 @@
 version: "3.9"
 
 services:
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+  elasticsearch: 
+    image: docker.elastic. co/elasticsearch/elasticsearch:8.15.0
     container_name: es
     environment:
       - node.name=es-node-1
       - discovery.type=single-node
-      - xpack.security.enabled=false
-      - xpack.security.http.ssl.enabled=false
+      - xpack.security.enabled=true                         
+      - xpack.security.http.ssl.enabled=false               
+      - ELASTIC_PASSWORD=${ELASTICSEARCH_PASSWORD:-changeme}  
       - ES_JAVA_OPTS=${ES_JAVA_OPTS}
     ports:
       - "9200:9200"
@@ -17,7 +18,7 @@ services:
     networks:
       - monitoring-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1"]
+      test:  ["CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -27,13 +28,21 @@ services:
     container_name: kibana
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      - xpack.security.enabled=false
+      - ELASTICSEARCH_USERNAME=elastic                      
+      - ELASTICSEARCH_PASSWORD=${ELASTICSEARCH_PASSWORD:-changeme}
+      - xpack.security.enabled=true                         
     ports:
       - "5601:5601"
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
     networks:
       - monitoring-network
+    healthcheck: 
+      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status >/dev/null || exit 1"]
+      interval: 30s
+      timeout:  10s
+      retries:  5
 
   mongodb:
     image: mongo:7.0

@@ -77,7 +77,9 @@ services:
       - monitoring-network
 
   webapp:
-    build: ./app
+    build:
+      context: ./app         
+      dockerfile: Dockerfile
     container_name: webapp
     env_file:
       - .env

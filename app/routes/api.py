@@ -107,7 +107,7 @@ def ingest_logs():
     """POST /api/ingest - Ingère les logs CSV & JSON"""
 
     try:
-        upload_dir = os.getenv("UPLOAD_DIR", "/uploads")
+        upload_dir = "/uploads"
         logs = []
         files_processed = []
 

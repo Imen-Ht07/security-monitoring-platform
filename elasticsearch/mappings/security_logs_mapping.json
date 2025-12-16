@@ -1,0 +1,34 @@
+{
+  "mappings": {
+    "properties": {
+      "@timestamp": { "type": "date" },
+      "event_type": { 
+        "type": "keyword",
+        "fields": { "text": { "type": "text" } }
+      },
+      "log_level": { "type": "keyword" },
+      "source_ip": { "type": "ip" },
+      "destination_ip": { "type": "ip" },
+      "username": { 
+        "type": "keyword",
+        "fields": { "text": { "type": "text" } }
+      },
+      "auth_result": { "type": "keyword" },
+      "country": { "type": "keyword" },
+      "city": { "type": "keyword" },
+      "geo_location": { "type": "geo_point" },
+      "resource_accessed": { 
+        "type": "keyword",
+        "fields": { "text": { "type": "text" } }
+      },
+      "is_sensitive": { "type": "boolean" },
+      "user_agent": { "type": "text" },
+      "attack_type": { "type": "keyword" },
+      "severity": { "type": "keyword" },
+      "message": { "type": "text" },
+      "raw_log": { "type": "text", "index": false },
+      "file_id": { "type": "keyword" },
+      "tags": { "type": "keyword" }
+    }
+  }
+}

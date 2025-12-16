@@ -1,10 +1,8 @@
 from flask import Flask, render_template
-import os
-from dotenv import load_dotenv
+from config import Config
+from routes import register_blueprints
+from db_init import init_mongodb
 import logging
-
-# Charger les variables d'env
-load_dotenv()
 
 # Configuration logging
 logging.basicConfig(
@@ -13,45 +11,32 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def create_app(config_name=None):
+def create_app():
     """Crée et configure l'app Flask"""
-    if config_name is None:
-        config_name = os.getenv("FLASK_ENV", "development")
+    app = Flask(__name__, 
+                template_folder="templates", 
+                static_folder="static")
     
-    app = Flask(
-        __name__,
-        template_folder="templates",
-        static_folder="static"
-    )
+    # Charge la configuration
+    app.config.from_object(Config)
     
-    # Charger la configuration
-    if config_name == "production":
-        from config import ProductionConfig
-        app. config.from_object(ProductionConfig)
-    elif config_name == "testing":
-        from config import TestingConfig
-        app.config.from_object(TestingConfig)
-    else:
-        from config import DevelopmentConfig
-        app.config.from_object(DevelopmentConfig)
+    # 🔄 Initialiser MongoDB au démarrage
+    logger.info("🚀 Initialisation de l'application...")
+    init_mongodb()
     
-    logger.info(f"🚀 Application démarrée en mode {config_name}")
+    # Enregistre les blueprints
+    register_blueprints(app)
     
     # Route principale
     @app.route("/")
     def index():
         return render_template("dashboard.html")
     
-    # Health check basique
-    @app.route("/health")
-    def health():
-        return {"status": "healthy", "version": "0.1.0"}, 200
-    
     logger.info("✅ Application initialisée avec succès !")
     
     return app
 
-# Instance globale pour Gunicorn
+# Instance globale
 app = create_app()
 
 if __name__ == "__main__":

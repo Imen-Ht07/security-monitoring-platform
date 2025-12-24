@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# Script pour générer des logs factices pour les tests
+# app/scripts/generate_fake_logs.py
 import csv
 import json
 import random

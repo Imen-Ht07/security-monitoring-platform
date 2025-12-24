@@ -1,128 +1,115 @@
 """
-app/models/uploaded_file.py - Modèle pour les fichiers uploadés
+app/models/uploaded_file.py
+Modèle MongoDB pour les fichiers uploadés
 """
-from services.mongodb_service import MongoDBService
 from datetime import datetime
+from bson import ObjectId
+from app.services.mongodb_service import MongoDBService
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UploadedFile:
-    """Modèle pour gérer les fichiers uploadés dans MongoDB"""
-    
-    def __init__(self):
+    collection = "uploaded_files"
+
+    def __init__(
+        self,
+        filename,
+        original_name,
+        file_type,
+        file_size,
+        document_count,
+        indexed_count,
+        description="",
+        file_path="",
+        id=None,
+        uploaded_at=None
+    ):
         self.mongo = MongoDBService()
-        self.collection = "uploaded_files"
-    
-    def create(self, filename, size, file_type):
-        """Crée une entrée fichier dans MongoDB
-        
-        Args:
-            filename (str): Nom du fichier
-            size (int): Taille en bytes
-            file_type (str): Type (csv, json, txt, log)
-            
-        Returns:
-            dict: Document MongoDB créé
-        """
+        self.id = id or ObjectId()
+        self.filename = filename
+        self.original_name = original_name
+        self.file_type = file_type
+        self.file_size = file_size
+        self.document_count = document_count
+        self.indexed_count = indexed_count
+        self.description = description
+        self.file_path = file_path
+        self.uploaded_at = uploaded_at or datetime.now()
+
+    # ================= SAVE =================
+    def save(self):
         doc = {
-            "filename": filename,
-            "size": size,
-            "file_type": file_type,
-            "uploaded_at": datetime.now(),
-            "status": "processed"
+            "_id": self.id,
+            "filename": self.filename,
+            "original_name": self.original_name,
+            "file_type": self.file_type,
+            "file_size": self.file_size,
+            "document_count": self.document_count,
+            "indexed_count": self.indexed_count,
+            "description": self.description,
+            "file_path": self.file_path,
+            "uploaded_at": self.uploaded_at,
         }
-        result = self.mongo.insert_one(self.collection, doc)
-        return {"_id": str(result.inserted_id)} if result else None
-    
-    def get_all(self):
-        """Récupère tous les fichiers uploadés
-        
-        Returns:
-            list: Liste des documents
-        """
-        docs = self.mongo.find_all(self.collection)
-        # Convertir ObjectId en string
-        for doc in docs:
-            doc["_id"] = str(doc["_id"])
-            if "uploaded_at" in doc:
-                doc["uploaded_at"] = doc["uploaded_at"].isoformat()
-        return docs
-    
-    def get_by_id(self, file_id):
-        """Récupère un fichier par son ID
-        
-        Args:
-            file_id (str): ID MongoDB
-            
-        Returns:
-            dict: Document ou None
-        """
-        from bson import ObjectId
+        self.mongo.insert_one(self.collection, doc)
+        logger.info(f"File '{self.filename}' saved")
+        return self
+
+    # ================= GET BY ID =================
+    @staticmethod
+    def get_by_id(file_id):
+        mongo = MongoDBService()
         try:
-            doc = self.mongo.find_one(
-                self.collection,
+            doc = mongo.find_one(
+                UploadedFile.collection,
                 {"_id": ObjectId(file_id)}
             )
-            if doc:
-                doc["_id"] = str(doc["_id"])
-            return doc
-        except:
+            if not doc:
+                return None
+
+            return UploadedFile(
+                filename=doc["filename"],
+                original_name=doc["original_name"],
+                file_type=doc["file_type"],
+                file_size=doc["file_size"],
+                document_count=doc["document_count"],
+                indexed_count=doc["indexed_count"],
+                description=doc.get("description", ""),
+                file_path=doc.get("file_path", ""),
+                id=doc["_id"],
+                uploaded_at=doc["uploaded_at"]
+            )
+        except Exception as e:
+            logger.error(f"Get upload error: {e}")
             return None
-    
-    def get_recent(self, limit=10):
-        """Récupère les fichiers uploadés récemment
-        
-        Args:
-            limit (int): Nombre maximum
-            
-        Returns:
-            list: Liste triée par date décroissante
-        """
-        docs = self.mongo.find_all(self.collection)
-        docs = sorted(
-            docs, 
-            key=lambda x: x.get("uploaded_at", datetime.now()), 
-            reverse=True
-        )[:limit]
-        
-        for doc in docs:
-            doc["_id"] = str(doc["_id"])
-            if "uploaded_at" in doc:
-                doc["uploaded_at"] = doc["uploaded_at"].isoformat()
-        return docs
-    
-    def update_status(self, file_id, status):
-        """Met à jour le statut d'un fichier
-        
-        Args:
-            file_id (str): ID MongoDB
-            status (str): Nouveau statut (processing, processed, failed)
-            
-        Returns:
-            bool: True si succès
-        """
-        from bson import ObjectId
-        try:
-            self.mongo.db[self.collection].update_one(
-                {"_id": ObjectId(file_id)},
-                {"$set": {"status": status}}
-            )
-            return True
-        except:
-            return False
-    
-    def delete(self, file_id):
-        """Supprime un fichier
-        
-        Args:
-            file_id (str): ID MongoDB
-            
-        Returns:
-            bool: True si succès
-        """
-        from bson import ObjectId
-        try:
-            self.mongo.db[self.collection].delete_one(
-                {"_id": ObjectId(file_id)}
-            )
-            return True
-        except:
-            return False
+
+    # ================= GET ALL =================
+    @staticmethod
+    def get_all():
+        mongo = MongoDBService()
+        docs = mongo.find_all(UploadedFile.collection)
+
+        results = []
+        for doc in sorted(docs, key=lambda x: x["uploaded_at"], reverse=True):
+            results.append({
+                "id": str(doc["_id"]),
+                "filename": doc["filename"],
+                "original_name": doc["original_name"],
+                "file_type": doc["file_type"],
+                "file_size": doc["file_size"],
+                "document_count": doc["document_count"],
+                "indexed_count": doc["indexed_count"],
+                "description": doc.get("description", ""),
+                "uploaded_at": doc["uploaded_at"].isoformat()
+            })
+        return results
+
+    # ================= DELETE =================
+    @staticmethod
+    def delete_by_id(file_id):
+        mongo = MongoDBService()
+        result = mongo.delete_one(
+            UploadedFile.collection,
+            {"_id": ObjectId(file_id)}
+        )
+        return result

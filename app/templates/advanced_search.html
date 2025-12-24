@@ -1,0 +1,415 @@
+<!-- templates/advanced-search.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Search - Security Logs</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0f172a;
+            --secondary: #1e293b;
+            --accent: #3b82f6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+        
+        body {
+            background: var(--primary);
+            color: #e2e8f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, var(--secondary) 0%, #334155 100%);
+            border-bottom: 2px solid var(--accent);
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.5rem;
+            color: var(--accent) !important;
+        }
+        
+        .card {
+            background: var(--secondary);
+            border: 1px solid #475569;
+            border-radius: 8px;
+        }
+        
+        .form-control, .form-select {
+            background: #1e293b;
+            border: 1px solid #475569;
+            color: #e2e8f0;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            background: #1e293b;
+            border-color: var(--accent);
+            color: #e2e8f0;
+            box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25);
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .filter-section {
+            background: #0f172a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .timeline-chart {
+            margin: 20px 0;
+            height: 300px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: var(--secondary);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent);
+        }
+        
+        .stat-card h5 {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--accent);
+        }
+        
+        .table-container {
+            background: var(--secondary);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .table {
+            color: #e2e8f0;
+            margin-bottom: 0;
+        }
+        
+        .table thead th {
+            background: #0f172a;
+            color: #94a3b8;
+            border: none;
+            padding: 15px;
+            font-weight: 600;
+        }
+        
+        .table tbody td {
+            padding: 12px 15px;
+            border-color: #475569;
+            vertical-align: middle;
+        }
+        
+        .table tbody tr:hover {
+            background: #1a2332;
+        }
+        
+        .badge-critical { background: #dc2626; }
+        .badge-error { background: #f97316; }
+        .badge-warning { background: #eab308; }
+        .badge-info { background: #0ea5e9; }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner-border {
+            border-color: #475569;
+            border-right-color: var(--accent);
+        }
+        
+        .saved-searches-modal {
+            background: var(--secondary);
+        }
+        
+        .modal-content {
+            background: var(--secondary);
+            border: 1px solid #475569;
+            color: #e2e8f0;
+        }
+        
+        .modal-header {
+            border-bottom: 1px solid #475569;
+        }
+        
+        .modal-footer {
+            border-top: 1px solid #475569;
+        }
+        
+        .close {
+            filter: invert(1);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-shield-alt"></i> Security Logs
+            </a>
+            <div class="navbar-text ms-auto">
+                <button class="btn btn-outline-light btn-sm me-2" data-bs-toggle="modal" data-bs-target="#savedSearchesModal">
+                    <i class="fas fa-bookmark"></i> Saved Searches
+                </button>
+                <a href="/" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-home"></i> Dashboard
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container-fluid py-4">
+        
+        <!-- Advanced Filters -->
+        <div class="filter-section">
+            <h5 class="mb-3"><i class="fas fa-sliders-h"></i> Advanced Search Filters</h5>
+            
+            <div class="row g-3">
+                <!-- Query Text -->
+                <div class="col-md-6">
+                    <label class="form-label">Search Text</label>
+                    <input type="text" class="form-control" id="queryText" placeholder="e.g., brute_force, admin, 192.168">
+                </div>
+                
+                <!-- Date Range -->
+                <div class="col-md-3">
+                    <label class="form-label">From Date</label>
+                    <input type="date" class="form-control" id="dateFrom">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">To Date</label>
+                    <input type="date" class="form-control" id="dateTo">
+                </div>
+                
+                <!-- Severity Multi-select -->
+                <div class="col-md-3">
+                    <label class="form-label">Severity</label>
+                    <select class="form-select" id="severity" multiple>
+                        <option value="CRITICAL">CRITICAL</option>
+                        <option value="ERROR">ERROR</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="INFO">INFO</option>
+                    </select>
+                    <small class="text-muted">Hold Ctrl to select multiple</small>
+                </div>
+                
+                <!-- Event Type Multi-select -->
+                <div class="col-md-3">
+                    <label class="form-label">Event Type</label>
+                    <select class="form-select" id="eventType" multiple>
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                
+                <!-- Country Multi-select -->
+                <div class="col-md-3">
+                    <label class="form-label">Country</label>
+                    <select class="form-select" id="country" multiple>
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                
+                <!-- Source IP Prefix -->
+                <div class="col-md-3">
+                    <label class="form-label">Source IP Prefix</label>
+                    <input type="text" class="form-control" id="sourceIp" placeholder="e.g., 192.168">
+                </div>
+                
+                <!-- Username -->
+                <div class="col-md-3">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control" id="username" placeholder="e.g., admin, root">
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="mt-3">
+                <button class="btn btn-primary" onclick="performSearch()">
+                    <i class="fas fa-search"></i> Search
+                </button>
+                <button class="btn btn-secondary" onclick="resetFilters()">
+                    <i class="fas fa-redo"></i> Reset
+                </button>
+                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#saveSearchModal">
+                    <i class="fas fa-save"></i> Save Search
+                </button>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div id="statsContainer" class="stats-grid"></div>
+
+        <!-- Timeline Chart -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-chart-line"></i> Event Timeline</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="timelineChart" class="timeline-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Top IPs & Event Types -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-network-wired"></i> Top 10 Source IPs</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="topIpsContainer" style="max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-list"></i> Top 10 Event Types</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="topEventsContainer" style="max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Table -->
+        <div class="card mt-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="fas fa-table"></i> Search Results</h6>
+                <small id="resultCount" class="text-muted">0 results</small>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p>Searching...</p>
+            </div>
+            
+            <div class="table-container">
+                <table class="table" id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Event Type</th>
+                            <th>Username</th>
+                            <th>Source IP</th>
+                            <th>Country</th>
+                            <th>Severity</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody">
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                Use filters above to perform a search
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <div class="card-footer d-flex justify-content-between align-items-center">
+                <small class="text-muted" id="pageInfo">Page 1</small>
+                <div>
+                    <button class="btn btn-sm btn-outline-light" onclick="previousPage()" id="prevBtn" disabled>
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <button class="btn btn-sm btn-outline-light" onclick="nextPage()" id="nextBtn">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Search Modal -->
+    <div class="modal fade" id="saveSearchModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Save This Search</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Search Name</label>
+                        <input type="text" class="form-control" id="searchName" placeholder="e.g., Critical Events Today">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="searchDescription" rows="3" placeholder="Add notes..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveCurrentSearch()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Saved Searches Modal -->
+    <div class="modal fade" id="savedSearchesModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Saved Searches</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="savedSearchesList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="/static/js/config.js"></script>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/ui.js"></script>
+<script src="/static/js/utils.js"></script>
+<script src="/static/js/advanced_search.js"></script>
+
+</body>
+</html>

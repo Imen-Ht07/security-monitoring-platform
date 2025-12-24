@@ -1,295 +1,139 @@
-// frontend/js/utils.js
-/**
- * Utilitaires et helpers réutilisables
- */
+// /static/js/utils.js
+// Fonctions utilitaires
 
-class Utils {
-    /**
-     * Formate la taille d'un fichier
-     */
-    static formatFileSize(bytes) {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-    }
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
 
-    /**
-     * Formate une date
-     */
-    static formatDate(dateString, format = 'fr-FR') {
-        const date = new Date(dateString);
-        return date.toLocaleString(format);
-    }
+function getQueryParam(param) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(param);
+}
 
-    /**
-     * Formate la durée
-     */
-    static formatDuration(ms) {
-        const seconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
+function setQueryParam(param, value) {
+    const url = new URL(window.location);
+    url.searchParams.set(param, value);
+    window.history.pushState({}, '', url);
+}
 
-        if (hours > 0) return `${hours}h ${minutes % 60}m`;
-        if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-        return `${seconds}s`;
-    }
+function localStorage_set(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+}
 
-    /**
-     * Valide une email
-     */
-    static isValidEmail(email) {
-        const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return regex.test(email);
-    }
+function localStorage_get(key) {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : null;
+}
 
-    /**
-     * Valide une IP
-     */
-    static isValidIP(ip) {
-        const regex = /^(\d{1,3}\.){3}\d{1,3}$/;
-        return regex.test(ip);
-    }
+function localStorage_remove(key) {
+    localStorage.removeItem(key);
+}
 
-    /**
-     * Copie du texte dans le clipboard
-     */
-    static copyToClipboard(text) {
-        return navigator.clipboard.writeText(text);
-    }
-
-    /**
-     * Débounce une fonction
-     */
-    static debounce(func, delay = CONFIG.UI.DEBOUNCE_DELAY) {
-        let timeoutId;
-        return (...args) => {
-            clearTimeout(timeoutId);
-            timeoutId = setTimeout(() => func(...args), delay);
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
         };
-    }
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
 
-    /**
-     * Throttle une fonction
-     */
-    static throttle(func, interval) {
-        let lastTime = 0;
-        return (...args) => {
-            const now = Date.now();
-            if (now - lastTime >= interval) {
-                lastTime = now;
-                func(...args);
-            }
-        };
-    }
+function throttle(func, limit) {
+    let inThrottle;
+    return function(...args) {
+        if (!inThrottle) {
+            func.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => inThrottle = false, limit);
+        }
+    };
+}
 
-    /**
-     * Retarde l'exécution
-     */
-    static delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    /**
-     * Convertit un objet en query string
-     */
-    static toQueryString(obj) {
-        return Object.keys(obj)
-            .filter(key => obj[key] !== null && obj[key] !== undefined && obj[key] !== '')
-            .map(key => {
-                if (Array.isArray(obj[key])) {
-                    return obj[key].map(v => `${key}=${encodeURIComponent(v)}`).join('&');
-                }
-                return `${key}=${encodeURIComponent(obj[key])}`;
-            })
-            .join('&');
-    }
-
-    /**
-     * Parse query string en objet
-     */
-    static parseQueryString(qs) {
-        const params = new URLSearchParams(qs);
+function parseCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    const headers = lines[0].split(',').map(h => h.trim());
+    const data = [];
+    
+    for (let i = 1; i < lines.length; i++) {
         const obj = {};
-        params.forEach((value, key) => {
-            if (obj[key]) {
-                if (!Array.isArray(obj[key])) {
-                    obj[key] = [obj[key]];
-                }
-                obj[key].push(value);
-            } else {
-                obj[key] = value;
-            }
-        });
-        return obj;
-    }
-
-    /**
-     * Profondeur copie d'un objet
-     */
-    static deepClone(obj) {
-        return JSON.parse(JSON.stringify(obj));
-    }
-
-    /**
-     * Fusionne deux objets
-     */
-    static mergeObjects(target, source) {
-        return { ...target, ...source };
-    }
-
-    /**
-     * Filtre un array d'objets
-     */
-    static filterBy(array, predicate) {
-        return array.filter(predicate);
-    }
-
-    /**
-     * Trie un array d'objets
-     */
-    static sortBy(array, key, order = 'asc') {
-        const sorted = [...array];
-        sorted.sort((a, b) => {
-            if (a[key] < b[key]) return order === 'asc' ? -1 : 1;
-            if (a[key] > b[key]) return order === 'asc' ? 1 : -1;
-            return 0;
-        });
-        return sorted;
-    }
-
-    /**
-     * Groupe un array par clé
-     */
-    static groupBy(array, key) {
-        return array.reduce((acc, obj) => {
-            const group = obj[key];
-            if (!acc[group]) acc[group] = [];
-            acc[group].push(obj);
-            return acc;
-        }, {});
-    }
-
-    /**
-     * Extrait les propriétés d'un objet
-     */
-    static pick(obj, keys) {
-        const picked = {};
-        keys.forEach(key => {
-            if (key in obj) picked[key] = obj[key];
-        });
-        return picked;
-    }
-
-    /**
-     * Crée un ID unique
-     */
-    static generateId(prefix = '') {
-        return prefix + Date.now() + Math.random().toString(36).substr(2, 9);
-    }
-
-    /**
-     * Valide si un objet est vide
-     */
-    static isEmpty(obj) {
-        return Object.keys(obj).length === 0;
-    }
-
-    /**
-     * Obtient les dates par défaut
-     */
-    static getDefaultDateRange(days = CONFIG.SEARCH.DEFAULT_DATE_RANGE) {
-        const today = new Date();
-        const pastDate = new Date(today.getTime() - days * 24 * 60 * 60 * 1000);
+        const currentLine = lines[i].split(',');
         
-        return {
-            from: pastDate.toISOString().split('T')[0],
-            to: today.toISOString().split('T')[0]
-        };
-    }
-
-    /**
-     * Valide une date
-     */
-    static isValidDate(dateString) {
-        const date = new Date(dateString);
-        return date instanceof Date && !isNaN(date);
-    }
-
-    /**
-     * Retourne la date du jour au format ISO
-     */
-    static today() {
-        return new Date().toISOString().split('T')[0];
-    }
-
-    /**
-     * Retourne la date d'hier
-     */
-    static yesterday() {
-        const date = new Date();
-        date.setDate(date.getDate() - 1);
-        return date.toISOString().split('T')[0];
-    }
-
-    /**
-     * Cache les données dans localStorage
-     */
-    static setCache(key, value, expiry = null) {
-        const data = {
-            value,
-            expiry: expiry ? Date.now() + expiry * 1000 : null
-        };
-        try {
-            localStorage.setItem(key, JSON.stringify(data));
-        } catch (e) {
-            appLogger.warn('Cache storage full');
+        for (let j = 0; j < headers.length; j++) {
+            obj[headers[j]] = currentLine[j] ? currentLine[j].trim() : '';
         }
+        data.push(obj);
     }
-
-    /**
-     * Récupère les données du cache
-     */
-    static getCache(key) {
-        try {
-            const data = JSON.parse(localStorage.getItem(key));
-            if (!data) return null;
-
-            if (data.expiry && Date.now() > data.expiry) {
-                localStorage.removeItem(key);
-                return null;
-            }
-
-            return data.value;
-        } catch {
-            return null;
-        }
-    }
-
-    /**
-     * Efface le cache
-     */
-    static clearCache(key) {
-        try {
-            localStorage.removeItem(key);
-        } catch {
-            // Ignore
-        }
-    }
-
-    /**
-     * Extrait les erreurs d'une réponse API
-     */
-    static getErrorMessage(error) {
-        if (error instanceof APIError) {
-            return error.data?.error || error.message;
-        }
-        return error?.message || 'Une erreur est survenue';
-    }
+    
+    return data;
 }
 
-// Export
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = Utils;
+function downloadFile(data, filename, type = 'application/json') {
+    const blob = new Blob([typeof data === 'string' ? data : JSON.stringify(data, null, 2)], { type });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
 }
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        showSuccess('Copied to clipboard');
+    }).catch(() => {
+        showError('Failed to copy');
+    });
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getRandomColor() {
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+    return colors[Math.floor(Math.random() * colors.length)];
+}
+
+function truncate(str, length = 50) {
+    return str.length > length ? str.substring(0, length) + '...' : str;
+}
+
+function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function isValidEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
+
+function isValidIP(ip) {
+    const re = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    return re.test(ip);
+}
+
+// Chart Colors
+const CHART_COLORS = {
+    primary: 'rgba(59, 130, 246, 1)',
+    success: 'rgba(16, 185, 129, 1)',
+    danger: 'rgba(239, 68, 68, 1)',
+    warning: 'rgba(245, 158, 11, 1)',
+    info: 'rgba(14, 165, 233, 1)'
+};
+
+const CHART_COLORS_BG = {
+    primary: 'rgba(59, 130, 246, 0.1)',
+    success: 'rgba(16, 185, 129, 0.1)',
+    danger: 'rgba(239, 68, 68, 0.1)',
+    warning: 'rgba(245, 158, 11, 0.1)',
+    info: 'rgba(14, 165, 233, 0.1)'
+};

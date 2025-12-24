@@ -53,7 +53,14 @@ def create_app():
                 "version": "1.0.0",
                 "status": "running"
             }, 200
-    
+    @app.route("/upload")
+    def upload_page():
+        return render_template("upload.html")
+
+    @app.route("/advanced_search")
+    def advanced_search_page():
+        return render_template("advanced_search.html")
+
     @app.route("/api/health")
     def health():
         return {"status": "healthy", "service": "webapp"}, 200

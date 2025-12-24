@@ -1,307 +1,118 @@
-// frontend/js/api.js
-/**
- * Service API centralisé
- * Gère tous les appels HTTP vers le backend
- * Avec retry, error handling, logging
- */
+// /static/js/api.js
+// Fonctions API réutilisables
 
-class APIService {
-    constructor(config = CONFIG) {
-        this.baseURL = config.API.BASE_URL;
-        this.timeout = config.API.TIMEOUT;
-        this.retryAttempts = config.API.RETRY_ATTEMPTS;
-        this.retryDelay = config.API.RETRY_DELAY;
-        this.logger = new Logger('APIService');
+class APIClient {
+    constructor(baseUrl = CONFIG.API_BASE_URL) {
+        this.baseUrl = baseUrl;
     }
 
-    /**
-     * Effectue une requête HTTP avec retry et error handling
-     */
     async request(endpoint, options = {}) {
-        const url = `${this.baseURL}${endpoint}`;
-        const defaultOptions = {
-            method: 'GET',
+        const url = `${this.baseUrl}${endpoint}`;
+        const config = {
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                ...options.headers
             },
             ...options
         };
 
-        let lastError;
-        for (let attempt = 0; attempt <= this.retryAttempts; attempt++) {
-            try {
-                this.logger.debug(`Request: ${defaultOptions.method} ${url}`);
-                
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-                const response = await fetch(url, {
-                    ...defaultOptions,
-                    signal: controller.signal
-                });
-
-                clearTimeout(timeoutId);
-
-                if (!response.ok) {
-                    throw new APIError(
-                        `HTTP ${response.status}: ${response.statusText}`,
-                        response.status,
-                        await response.json().catch(() => ({}))
-                    );
-                }
-
-                const data = await response.json();
-                this.logger.debug(`Response: ${response.status}`, data);
-                return data;
-
-            } catch (error) {
-                lastError = error;
-                this.logger.warn(`Attempt ${attempt + 1} failed:`, error.message);
-
-                if (attempt < this.retryAttempts) {
-                    await this.delay(this.retryDelay * (attempt + 1)); // Exponential backoff
-                }
+        try {
+            const response = await fetch(url, config);
+            
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status} ${response.statusText}`);
             }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
         }
-
-        this.logger.error(`Failed after ${this.retryAttempts + 1} attempts:`, lastError);
-        throw lastError;
     }
 
-    /**
-     * GET request
-     */
-    async get(endpoint) {
+    // GET request
+    get(endpoint) {
         return this.request(endpoint, { method: 'GET' });
     }
 
-    /**
-     * POST request
-     */
-    async post(endpoint, data = {}) {
+    // POST request
+    post(endpoint, data) {
         return this.request(endpoint, {
             method: 'POST',
             body: JSON.stringify(data)
         });
     }
 
-    /**
-     * PUT request
-     */
-    async put(endpoint, data = {}) {
+    // PUT request
+    put(endpoint, data) {
         return this.request(endpoint, {
             method: 'PUT',
             body: JSON.stringify(data)
         });
     }
 
-    /**
-     * DELETE request
-     */
-    async delete(endpoint) {
+    // DELETE request
+    delete(endpoint) {
         return this.request(endpoint, { method: 'DELETE' });
     }
 
-    /**
-     * Upload fichier avec FormData
-     */
-    async uploadFile(endpoint, file, metadata = {}, onProgress = null) {
-        const url = `${this.baseURL}${endpoint}`;
+    // Upload file
+    async uploadFile(endpoint, file, description = '') {
         const formData = new FormData();
         formData.append('file', file);
-        Object.keys(metadata).forEach(key => {
-            formData.append(key, metadata[key]);
+        if (description) {
+            formData.append('description', description);
+        }
+
+        const url = `${this.baseUrl}${endpoint}`;
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData
         });
 
-        return new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
+        if (!response.ok) {
+            throw new Error(`Upload Error: ${response.status}`);
+        }
 
-            // Progress tracking
-            if (onProgress) {
-                xhr.upload.addEventListener('progress', (e) => {
-                    if (e.lengthComputable) {
-                        onProgress({
-                            loaded: e.loaded,
-                            total: e.total,
-                            percent: Math.round((e.loaded / e.total) * 100)
-                        });
-                    }
-                });
-            }
-
-            // Success
-            xhr.addEventListener('load', () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        resolve(response);
-                    } catch (e) {
-                        reject(new Error('Invalid JSON response'));
-                    }
-                } else {
-                    try {
-                        const error = JSON.parse(xhr.responseText);
-                        reject(new APIError(error.error, xhr.status, error));
-                    } catch (e) {
-                        reject(new APIError(`HTTP ${xhr.status}`, xhr.status));
-                    }
-                }
-            });
-
-            // Error
-            xhr.addEventListener('error', () => {
-                reject(new Error('Network error'));
-            });
-
-            // Abort
-            xhr.addEventListener('abort', () => {
-                reject(new Error('Upload cancelled'));
-            });
-
-            // Timeout
-            xhr.timeout = CONFIG.UPLOAD.TIMEOUT;
-            xhr.addEventListener('timeout', () => {
-                reject(new Error('Upload timeout'));
-            });
-
-            xhr.open('POST', url);
-            xhr.send(formData);
-        });
-    }
-
-    /**
-     * Delay helper pour retry
-     */
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    // ===== SEARCH ENDPOINTS =====
-
-    async searchAdvanced(filters) {
-        return this.post('/search/advanced', filters);
-    }
-
-    async getFilterOptions() {
-        return this.get('/filters/options');
-    }
-
-    async getTopIPs(filters = {}) {
-        return this.post('/stats/top-ips', filters);
-    }
-
-    async getTopEvents(filters = {}) {
-        return this.post('/stats/top-events', filters);
-    }
-
-    async getTimeline(filters = {}) {
-        return this.post('/stats/timeline', filters);
-    }
-
-    async getSeverityDistribution(filters = {}) {
-        return this.post('/stats/severity-distribution', filters);
-    }
-
-    // ===== SAVED SEARCHES =====
-
-    async listSavedSearches() {
-        return this.get('/searches');
-    }
-
-    async getSavedSearch(id) {
-        return this.get(`/searches/${id}`);
-    }
-
-    async saveSearch(name, description, filters) {
-        return this.post('/searches', {
-            name,
-            description,
-            filters
-        });
-    }
-
-    async deleteSavedSearch(id) {
-        return this.delete(`/searches/${id}`);
-    }
-
-    // ===== UPLOAD ENDPOINTS =====
-
-    async uploadFile(file, description = '', onProgress = null) {
-        return this.uploadFile('/upload', file, { description }, onProgress);
-    }
-
-    async getUploadHistory() {
-        return this.get('/upload/history');
-    }
-
-    async getUploadDetails(id) {
-        return this.get(`/upload/${id}`);
-    }
-
-    async deleteUpload(id) {
-        return this.delete(`/upload/${id}`);
+        return await response.json();
     }
 }
 
-/**
- * Custom Error Class for API errors
- */
-class APIError extends Error {
-    constructor(message, status, data = {}) {
-        super(message);
-        this.name = 'APIError';
-        this.status = status;
-        this.data = data;
-    }
+// Instance globale
+const api = new APIClient();
+
+// Fonctions de recherche
+async function searchLogs(query) {
+    return api.get(`${CONFIG.ENDPOINTS.SEARCH}?q=${encodeURIComponent(query)}`);
 }
 
-/**
- * Simple Logger
- */
-class Logger {
-    constructor(context = 'App', level = CONFIG.LOG.LEVEL) {
-        this.context = context;
-        this.level = level;
-        this.levels = { debug: 0, info: 1, warn: 2, error: 3 };
-        this.logs = [];
-    }
-
-    log(level, message, data = null) {
-        if (this.levels[level] >= this.levels[this.level]) {
-            const timestamp = new Date().toISOString();
-            const entry = { timestamp, level, context: this.context, message, data };
-            
-            console[level](`[${this.context}] ${message}`, data || '');
-            
-            if (CONFIG.LOG.STORAGE) {
-                this.logs.push(entry);
-                this.saveLogs();
-            }
-        }
-    }
-
-    debug(message, data) { this.log('debug', message, data); }
-    info(message, data) { this.log('info', message, data); }
-    warn(message, data) { this.log('warn', message, data); }
-    error(message, data) { this.log('error', message, data); }
-
-    saveLogs() {
-        try {
-            localStorage.setItem(`logs_${this.context}`, JSON.stringify(this.logs.slice(-100)));
-        } catch (e) {
-            // Storage full or disabled
-        }
-    }
-
-    getLogs() {
-        try {
-            return JSON.parse(localStorage.getItem(`logs_${this.context}`) || '[]');
-        } catch {
-            return [];
-        }
-    }
+async function advancedSearch(filters) {
+    return api.post(CONFIG.ENDPOINTS.SEARCH_ADVANCED, filters);
 }
 
-// Créer une instance globale
-const api = new APIService();
-const appLogger = new Logger('App');
+// Fonctions de stats
+async function getStats() {
+    return api.get(CONFIG.ENDPOINTS.STATS);
+}
+
+async function getTopIPs() {
+    return api.post(CONFIG.ENDPOINTS.STATS_TOP_IPS, {});
+}
+
+async function getSeverityStats() {
+    return api.get(CONFIG.ENDPOINTS.STATS_SEVERITY);
+}
+
+// Fonctions d'upload
+async function uploadLogFile(file, description = '') {
+    return api.uploadFile(CONFIG.ENDPOINTS.UPLOAD, file, description);
+}
+
+async function getUploadHistory() {
+    return api.get(CONFIG.ENDPOINTS.UPLOAD_HISTORY);
+}
+
+// Health check
+async function checkHealth() {
+    return api.get(CONFIG.ENDPOINTS.HEALTH);
+}

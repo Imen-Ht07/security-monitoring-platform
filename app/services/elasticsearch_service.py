@@ -115,17 +115,17 @@ class ElasticsearchService:
         """Récupérer les stats globales"""
         if not self.is_connected():
             logger.error("❌ Elasticsearch n'est pas connecté")
-            return {"total_logs": 0, "today_logs": 0, "error_logs": 0}
+            return {"total_logs": 0, "critical_count": 0, "today_count": 0, "unique_ips": 0}
         
         try:
             total = self.es.count(index=self.index)["count"]
 
             today = datetime.now().strftime("%Y-%m-%d")
-            today_logs = self.es.count(
+            today_count = self.es.count(
                 index=self.index,
                 query={
                     "range": {
-                        "@timestamp": {
+                        "timestamp": {
                             "gte": f"{today}T00:00:00",
                             "lte": f"{today}T23:59:59"
                         }
@@ -133,21 +133,32 @@ class ElasticsearchService:
                 }
             )["count"]
 
-            error_logs = self.es.count(
+            critical_count = self.es.count(
                 index=self.index,
-                query={"match": {"severity": "ERROR"}}
+                query={"term": {"severity": "CRITICAL"}}
             )["count"]
 
-            logger.info(f"📊 Stats: {total} logs total, {today_logs} aujourd'hui, {error_logs} erreurs")
+            unique_ips = self.es.search(
+                index=self.index,
+                size=0,
+                aggs={
+                    "unique_ips": {
+                        "cardinality": {"field": "source_ip"}
+                    }
+                }
+            )["aggregations"]["unique_ips"]["value"]
+
+            logger.info(f"📊 Stats: {total} logs total, {today_count} aujourd'hui, {critical_count} critical, {unique_ips} unique IPs")
 
             return {
                 "total_logs": total,
-                "today_logs": today_logs,
-                "error_logs": error_logs
+                "critical_count": critical_count,
+                "today_count": today_count,
+                "unique_ips": unique_ips
             }
         except Exception as e:
             logger.error(f"❌ Stats error: {e}")
-            return {"total_logs": 0, "today_logs": 0, "error_logs": 0}
+            return {"total_logs": 0, "critical_count": 0, "today_count": 0, "unique_ips": 0}
 
     # ================= BASIC SEARCH =================
     def search(self, query_text=None, page=0, size=50):
@@ -180,7 +191,7 @@ class ElasticsearchService:
                 query=query,
                 from_=page * size,
                 size=size,
-                sort=[{"@timestamp": {"order": "desc"}}]
+                sort=[{"timestamp": {"order": "desc"}}]
             )
 
             return {
@@ -203,50 +214,62 @@ class ElasticsearchService:
             filter_clauses = []
 
             # Query text
-            if filters.get("query_text"):
+            query_text = filters.get("query", "*")
+            inner_filters = filters.get("filters", {})
+
+            if query_text and query_text != "*":
                 must.append({
                     "multi_match": {
-                        "query": filters["query_text"],
-                        "fields": ["event_type", "username", "source_ip", "message"],
+                        "query": query_text,
+                        "fields": ["event_type^2", "message", "username", "source_ip"],
                         "fuzziness": "AUTO"
                     }
                 })
 
             # Severity filter
-            if filters.get("severity"):
-                severities = filters["severity"] if isinstance(filters["severity"], list) else [filters["severity"]]
+            if inner_filters.get("severity"):
+                severities = inner_filters["severity"] if isinstance(inner_filters["severity"], list) else [inner_filters["severity"]]
                 filter_clauses.append({
                     "terms": {"severity": severities}
                 })
 
             # Event type filter
-            if filters.get("event_type"):
-                event_types = filters["event_type"] if isinstance(filters["event_type"], list) else [filters["event_type"]]
+            if inner_filters.get("event_type"):
+                event_types = inner_filters["event_type"] if isinstance(inner_filters["event_type"], list) else [inner_filters["event_type"]]
                 filter_clauses.append({
                     "terms": {"event_type": event_types}
                 })
 
             # Country filter
-            if filters.get("country"):
-                countries = filters["country"] if isinstance(filters["country"], list) else [filters["country"]]
+            if inner_filters.get("country"):
+                countries = inner_filters["country"] if isinstance(inner_filters["country"], list) else [inner_filters["country"]]
                 filter_clauses.append({
                     "terms": {"country": countries}
                 })
 
-            # Source IP filter
-            if filters.get("source_ip"):
+            # Source IP prefix filter
+            if inner_filters.get("source_ip"):
                 filter_clauses.append({
-                    "term": {"source_ip": filters["source_ip"]}
+                    "prefix": {"source_ip": inner_filters["source_ip"]}
+                })
+
+            # Username filter - Changed to match for potential analyzed field or partial match
+            if inner_filters.get("username"):
+                filter_clauses.append({
+                    "match": {"username": {
+                        "query": inner_filters["username"],
+                        "operator": "and"
+                    }}
                 })
 
             # Date range filter
-            if filters.get("date_from") or filters.get("date_to"):
-                range_q = {}
-                if filters.get("date_from"):
-                    range_q["gte"] = f"{filters['date_from']}T00:00:00"
-                if filters.get("date_to"):
-                    range_q["lte"] = f"{filters['date_to']}T23:59:59"
-                filter_clauses.append({"range": {"@timestamp": range_q}})
+            if inner_filters.get("date_from") or inner_filters.get("date_to"):
+                range_q = {"range": {"timestamp": {}}}
+                if inner_filters.get("date_from"):
+                    range_q["range"]["timestamp"]["gte"] = f"{inner_filters['date_from']}T00:00:00"
+                if inner_filters.get("date_to"):
+                    range_q["range"]["timestamp"]["lte"] = f"{inner_filters['date_to']}T23:59:59.999"
+                filter_clauses.append(range_q)
 
             # Build query
             query = {
@@ -261,7 +284,7 @@ class ElasticsearchService:
                 query=query,
                 from_=page * size,
                 size=size,
-                sort=[{"@timestamp": {"order": "desc"}}]
+                sort=[{"timestamp": {"order": "desc"}}]
             )
 
             return {

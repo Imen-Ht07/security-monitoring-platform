@@ -218,44 +218,34 @@
                     <input type="date" class="form-control" id="dateTo">
                 </div>
                 
-                <!-- Severity Multi-select -->
+                <!-- Severity Select -->
                 <div class="col-md-3">
                     <label class="form-label">Severity</label>
-                    <select class="form-select" id="severity" multiple>
+                    <select class="form-select" id="severity">
+                        <option value="">All</option>
                         <option value="CRITICAL">CRITICAL</option>
                         <option value="ERROR">ERROR</option>
                         <option value="WARNING">WARNING</option>
                         <option value="INFO">INFO</option>
                     </select>
-                    <small class="text-muted">Hold Ctrl to select multiple</small>
                 </div>
                 
-                <!-- Event Type Multi-select -->
+                <!-- Event Type Input -->
                 <div class="col-md-3">
                     <label class="form-label">Event Type</label>
-                    <select class="form-select" id="eventType" multiple>
-                        <!-- Populated by JS -->
-                    </select>
+                    <input type="text" class="form-control" id="eventType" placeholder="e.g., intrusion_attempt, firewall_block">
                 </div>
                 
-                <!-- Country Multi-select -->
+                <!-- Country Input -->
                 <div class="col-md-3">
                     <label class="form-label">Country</label>
-                    <select class="form-select" id="country" multiple>
-                        <!-- Populated by JS -->
-                    </select>
+                    <input type="text" class="form-control" id="country" placeholder="e.g., DE, US">
                 </div>
                 
                 <!-- Source IP Prefix -->
                 <div class="col-md-3">
                     <label class="form-label">Source IP Prefix</label>
                     <input type="text" class="form-control" id="sourceIp" placeholder="e.g., 192.168">
-                </div>
-                
-                <!-- Username -->
-                <div class="col-md-3">
-                    <label class="form-label">Username</label>
-                    <input type="text" class="form-control" id="username" placeholder="e.g., admin, root">
                 </div>
             </div>
             
@@ -330,7 +320,6 @@
                         <tr>
                             <th>Timestamp</th>
                             <th>Event Type</th>
-                            <th>Username</th>
                             <th>Source IP</th>
                             <th>Country</th>
                             <th>Severity</th>
@@ -339,7 +328,7 @@
                     </thead>
                     <tbody id="resultsBody">
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-4">
+                            <td colspan="6" class="text-center text-muted py-4">
                                 Use filters above to perform a search
                             </td>
                         </tr>

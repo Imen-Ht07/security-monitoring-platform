@@ -4,15 +4,8 @@ let currentFilters = {};
 let chart = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-
-    const dateFromInput = document.getElementById('dateFrom');
-    const dateToInput = document.getElementById('dateTo');
-
-    if (dateFromInput) dateFromInput.value = yesterday;
-    if (dateToInput) dateToInput.value = today;
-
+    // Suppression du paramétrage automatique des dates pour éviter de filtrer inutilement
+    // Les inputs restent vides par défaut (envoyant null au backend)
     await loadStats();
 });
 
@@ -20,7 +13,6 @@ document.addEventListener('DOMContentLoaded', async () => {
    SEARCH
 ======================= */
 async function performSearch() {
-    currentPage = currentPage || 1;
     const filters = buildFilters();
     currentFilters = filters;
 
@@ -33,16 +25,23 @@ async function performSearch() {
 
         hideElement('loading');
 
-        if (response && Array.isArray(response.logs) && response.logs.length > 0) {
-            currentResults = response.logs;
-            displayResults(currentResults);
-            updateResultCount(response.total || response.logs.length);
-            updatePagination(response.total || 0);
-        } else {
-            showNoResults();
+        if (!response.success) {
+            showError(response.error || 'Unknown error');
             updateResultCount(0);
             updatePagination(0);
+            showNoResults();
+            return;
         }
+
+        if (Array.isArray(response.logs) && response.logs.length > 0) {
+            currentResults = response.logs;
+            displayResults(currentResults);
+        } else {
+            showNoResults();
+        }
+
+        updateResultCount(response.total || 0);
+        updatePagination(response.total || 0);
 
     } catch (error) {
         hideElement('loading');
@@ -55,16 +54,20 @@ async function performSearch() {
    BUILD FILTERS
 ======================= */
 function buildFilters() {
+    const getSplitValues = (id) => {
+        const val = document.getElementById(id)?.value || '';
+        return val.split(',').map(s => s.trim()).filter(s => s) || null;
+    };
+
     return {
         query: document.getElementById('queryText')?.value || '*',
         filters: {
             date_from: document.getElementById('dateFrom')?.value || null,
             date_to: document.getElementById('dateTo')?.value || null,
-            severity: Array.from(document.getElementById('severity')?.selectedOptions || []).map(o => o.value),
-            event_type: Array.from(document.getElementById('eventType')?.selectedOptions || []).map(o => o.value),
-            country: Array.from(document.getElementById('country')?.selectedOptions || []).map(o => o.value),
-            source_ip: document.getElementById('sourceIp')?.value || null,
-            username: document.getElementById('username')?.value || null
+            severity: document.getElementById('severity')?.value || null,
+            event_type: getSplitValues('eventType') || null,
+            country: getSplitValues('country') || null,
+            source_ip: document.getElementById('sourceIp')?.value || null
         },
         page: currentPage - 1,        // ✅ IMPORTANT
         size: CONFIG.PAGE_SIZE
@@ -85,7 +88,6 @@ function displayResults(results) {
         row.innerHTML = `
             <td>${formatDate(log.timestamp)}</td>
             <td>${truncate(log.event_type || 'N/A', 20)}</td>
-            <td>${log.username || 'N/A'}</td>
             <td>${log.source_ip || 'N/A'}</td>
             <td>${log.country || 'N/A'}</td>
             <td>${createSeverityBadge(log.severity || 'INFO')}</td>
@@ -100,7 +102,7 @@ function showNoResults() {
     if (tbody) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center text-muted py-4">
+                <td colspan="6" class="text-center text-muted py-4">
                     No results found. Try adjusting your filters.
                 </td>
             </tr>
@@ -143,14 +145,9 @@ function previousPage() {
    RESET
 ======================= */
 function resetFilters() {
-    ['queryText', 'sourceIp', 'username'].forEach(id => {
+    ['queryText', 'dateFrom', 'dateTo', 'severity', 'eventType', 'country', 'sourceIp'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
-    });
-
-    ['severity', 'eventType', 'country'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.selectedIndex = -1;
     });
 
     showNoResults();

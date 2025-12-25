@@ -97,6 +97,7 @@ class ElasticsearchService:
                             "description": {"type": "text"},
                             "source_system": {"type": "keyword"},
                             "blocked": {"type": "boolean"}
+                            
                         }
                     }
                 )

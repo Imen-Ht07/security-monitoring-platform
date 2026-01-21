@@ -7,7 +7,6 @@ Plateforme complète d'analyse et de monitoring des logs de sécurité en temps 
 - **Elasticsearch 8.15** : Indexation et recherche
 - **Kibana 8.15** :  Dashboards
 - **MongoDB 7.0** : Métadonnées
-- **Redis 7-alpine** : Cache/Sessions
 - **Flask 3.0.3** : API REST
 - **Docker Compose** : Orchestration
 

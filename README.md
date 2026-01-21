@@ -62,36 +62,4 @@ GET /api/analytics/top-ips
 GET /api/analytics/timeline
 GET /api/analytics/event-types
 ```
-
-## 🔐 Sécurité
-
-⚠️ **Important** :  En développement, la sécurité Elasticsearch est désactivée.  Activez-la avant d'utiliser en production. 
-
-### Étapes Sécurité Production
-
-1. Activer X-Pack Elasticsearch
-2. Configurer authentification Kibana
-3. Utiliser HTTPS/TLS
-4. Secrets en variables d'env
-5. Implémenter authentification API (Phase 8)
-
-## 📈 Roadmap
-
-**Phases 1-5** ✅ - Infrastructure de base (COMPLÈTE)
-**Phases 6-7** 🔄 - Recherche avancée, uploads (EN COURS)
-**Phases 8-15** ⬜ - Auth, ML, scalabilité (PLANIFIÉE)
-
-## 🤝 Contributing
-
-1. Fork → Feature branch → Pull request
-2. Tests obligatoires
-3. Documentation à jour
-
-## 📄 Licence
-
-MIT License
-
----
-
-**Version** : 0.1.0-alpha (Phase 5)
 **Dernière mise à jour** : 2025-12-16
